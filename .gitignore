@@ -1,0 +1,16 @@
+# paczki tworzone przez narzedzia/zbuduj-wersje.py
+wersje/
+*.zip
+*.xpi
+*.crx
+*.pem
+
+# kopie zapasowe Mojej Karty i dane prywatne – nie wysyłaj na GitHub
+moja-karta-*.json
+MojaKarta-kopie/
+
+# pliki systemowe
+.DS_Store
+Thumbs.db
+desktop.ini
+__pycache__/

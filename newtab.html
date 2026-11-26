@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <title>Moja Karta</title>
+  <link rel="stylesheet" href="newtab.css">
+</head>
+<body>
+  <div id="bg"></div>
+  <div id="bg-dim"></div>
+  <canvas id="fx" hidden></canvas>
+
+  <!-- Ustawianie kadru tła -->
+  <div id="crop-layer" class="crop-layer" hidden>
+    <div class="crop-bar">
+      <span>✋ Przeciągnij <b id="crop-who">tło</b> myszą · kółko = przybliżenie</span>
+      <button type="button" id="crop-minus" class="icon-btn mini">−</button>
+      <b id="crop-zoom" class="crop-zoom">100%</b>
+      <button type="button" id="crop-plus" class="icon-btn mini">+</button>
+      <button type="button" id="crop-reset" class="btn small-btn">Środek</button>
+      <button type="button" id="crop-cancel" class="btn ghost small-btn">Anuluj</button>
+      <button type="button" id="crop-ok" class="btn primary small-btn">Gotowe</button>
+    </div>
+  </div>
+
+  <header id="top">
+    <div id="weather" hidden>
+      <span id="w-icon"></span><span id="w-temp"></span><span id="w-city"></span><span id="w-rain" class="w-rain" hidden></span>
+      <div id="w-forecast"></div>
+    </div>
+    <nav id="groups"></nav>
+    <div class="top-right">
+      <button id="btn-lock" class="icon-btn" title="Zablokuj grupy z PIN-em" hidden>🔓</button>
+      <div id="rates" class="rates" hidden></div>
+      <button id="btn-pad" class="icon-btn" title="Notatnik i zadania" hidden>📝<span id="pad-count" class="news-count pad-count" hidden></span></button>
+      <button id="btn-news" class="icon-btn" title="Wiadomości (RSS)" hidden>📰<span id="news-count" class="news-count" hidden></span></button>
+      <button id="btn-readonly" class="icon-btn" title="Układ zablokowany – kliknij, aby odblokować edycję" hidden>🔒</button>
+      <button id="btn-settings" class="icon-btn" title="Ustawienia">⚙</button>
+    </div>
+  </header>
+
+  <main>
+    <div id="clock"><div id="time"></div><div id="date"></div></div>
+    <div id="countdowns" class="countdowns" hidden></div>
+
+    <form id="search">
+      <span class="q-icon" aria-hidden="true"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" stroke-width="2.4"/><path d="M15.5 15.5 21 21" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/></svg></span>
+      <input id="q" type="search" placeholder="Szukaj lub wpisz adres…  ( / )" autocomplete="off">
+      <button type="submit" class="q-btn">Szukaj</button>
+    </form>
+
+    <section id="grid" class="tile-grid"></section>
+  </main>
+
+  <a id="bing-credit" target="_blank" rel="noopener" hidden></a>
+
+  <!-- Panel wiadomości (RSS) -->
+  <aside id="news-panel" class="news-panel" hidden>
+    <div class="news-head">
+      <b>📰 Wiadomości</b>
+      <button type="button" id="news-refresh" class="icon-btn mini" title="Odśwież">↻</button>
+      <button type="button" id="news-settings" class="icon-btn mini" title="Kanały">⚙</button>
+      <button type="button" id="news-close" class="icon-btn mini" title="Zamknij (Esc)">✕</button>
+    </div>
+    <div id="news-list" class="news-list"></div>
+  </aside>
+
+  <aside id="pad-panel" class="news-panel pad-panel" hidden>
+    <div class="news-head">
+      <b>📝 Notatnik</b>
+      <button type="button" id="pad-close" class="icon-btn mini" title="Zamknij (Esc)">✕</button>
+    </div>
+    <div class="pad-tabs">
+      <button type="button" class="pad-tab active" data-tab="todo">Zadania <span id="pad-todo-n"></span></button>
+      <button type="button" class="pad-tab" data-tab="notes">Notatki</button>
+    </div>
+    <div class="pad-body" data-tab="todo">
+      <form id="pad-add" class="pad-add">
+        <input id="pad-new" type="text" placeholder="Dodaj zadanie i naciśnij Enter" maxlength="300" autocomplete="off">
+      </form>
+      <ul id="pad-list" class="pad-list"></ul>
+      <div class="pad-foot">
+        <span id="pad-left"></span>
+        <button type="button" id="pad-clear" class="btn ghost small-btn">Usuń wykonane</button>
+      </div>
+    </div>
+    <div class="pad-body" data-tab="notes" hidden>
+      <textarea id="pad-notes" class="pad-notes" placeholder="Twoje notatki…" maxlength="20000" spellcheck="true"></textarea>
+      <div class="pad-foot"><span id="pad-saved"></span><span id="pad-chars"></span></div>
+    </div>
+  </aside>
+
+  <!-- Pasek zaznaczenia -->
+  <div id="selbar" class="selbar" hidden>
+    <b id="sel-count"></b>
+    <button type="button" id="sel-open" class="btn small-btn">Otwórz</button>
+    <button type="button" id="sel-move" class="btn small-btn">Przenieś do…</button>
+    <button type="button" id="sel-folder" class="btn small-btn">📁 Do folderu</button>
+    <button type="button" id="sel-shot" class="btn small-btn">📸 Podglądy</button>
+    <button type="button" id="sel-del" class="btn small-btn danger">Usuń</button>
+    <button type="button" id="sel-cancel" class="btn ghost small-btn" title="Esc">✕</button>
+  </div>
+
+  <!-- Menu kontekstowe -->
+  <div id="menu" class="menu" hidden></div>
+
+  <!-- Edycja kafelka -->
+  <div id="tile-modal" class="modal" hidden>
+    <form class="dialog tile-dialog" id="tile-form">
+      <div class="te-head">
+        <div class="te-preview">
+          <div id="f-tile-preview" class="tp-thumb"></div>
+          <div id="f-tile-preview-title" class="tp-title"></div>
+        </div>
+        <div class="te-fields">
+          <div id="tile-modal-title" class="te-caption">Nowy kafelek</div>
+          <input id="f-url" type="text" placeholder="Adres, np. allegro.pl" required>
+          <input id="f-title" type="text" placeholder="Nazwa (opcjonalnie)">
+          <input id="f-note" type="text" maxlength="200" placeholder="📝 Notatka (opcjonalnie)">
+        </div>
+      </div>
+
+      <div class="te-label">Wygląd</div>
+      <div class="seg" role="radiogroup">
+        <label><input type="radio" name="f-mode" value="auto"><span>✨ Auto</span></label>
+        <label><input type="radio" name="f-mode" value="logo"><span>🔷 Logo</span></label>
+        <label><input type="radio" name="f-mode" value="shot"><span>📸 Zrzut</span></label>
+        <label><input type="radio" name="f-mode" value="custom"><span>🖼️ Obraz</span></label>
+      </div>
+
+      <div id="f-shot-row" class="te-line" hidden>
+        <span class="hint">Zrzut ekranu strony.</span>
+        <button type="button" id="f-preview-now" class="btn small-btn">Zrób teraz</button>
+      </div>
+
+      <div id="f-custom-box" class="te-custom">
+        <div id="f-gallery-col" class="te-strip-wrap" hidden>
+          <div id="f-gallery" class="te-strip"></div>
+        </div>
+        <div class="te-line">
+          <input id="f-img-url" type="text" placeholder="adres obrazu…">
+          <button type="button" id="f-img-load" class="icon-btn mini" title="Wczytaj obraz z adresu">⬇</button>
+          <button type="button" id="f-image-pick" class="icon-btn mini" title="Obraz z dysku">📁</button>
+          <button type="button" id="f-img-gallery" class="icon-btn mini" title="Szukaj logo ponownie">🔍</button>
+          <select id="f-img-fit" class="mini-select" title="Dopasowanie">
+            <option value="contain">Zmieść</option>
+            <option value="cover">Wypełnij</option>
+          </select>
+          <button type="button" id="f-image-clear" class="icon-btn mini" title="Usuń obraz">✕</button>
+          <input id="f-image-file" type="file" accept="image/*" hidden>
+        </div>
+        <div id="f-image-preview" hidden></div>
+      </div>
+
+      <details class="more-opts">
+        <summary>Więcej opcji</summary>
+        <div class="te-grid">
+          <span id="f-group-row" class="te-pair"><span class="te-k">Grupa</span><select id="f-group"></select></span>
+          <span class="te-pair"><span class="te-k">Incognito</span><span class="te-v"><label class="inline"><input id="f-incognito" type="checkbox"> zawsze otwieraj w oknie incognito</label></span></span>
+          <span class="te-pair"><span class="te-k">Obserwuj</span><span class="te-v"><label class="inline"><input id="f-watch" type="checkbox"> pokaż „NOWE”, gdy na stronie pojawi się coś nowego</label></span></span>
+          <span class="te-pair"><span class="te-k">Ikona</span>
+            <span class="te-v"><span id="f-icon-preview" class="icon-preview"></span>
+              <button type="button" id="f-icon-pick" class="btn small-btn">Własna…</button>
+              <button type="button" id="f-icon-clear" class="btn ghost small-btn">Auto</button>
+              <input id="f-icon-file" type="file" accept="image/png,image/svg+xml,image/webp,image/jpeg,image/x-icon" hidden></span></span>
+          <span class="te-pair"><span class="te-k">Wielkość <b id="f-isize-val"></b></span>
+            <span class="te-v"><input id="f-isize" type="range" min="15" max="60" step="1" class="grow-range">
+              <button type="button" id="f-isize-reset" class="btn ghost small-btn">Domyślna</button></span></span>
+          <span class="te-pair"><span class="te-k">Emoji</span>
+            <span class="te-v"><input id="f-emoji" type="text" class="emoji-input" maxlength="8" placeholder="—">
+              <button type="button" id="f-emoji-clear" class="btn ghost small-btn">Bez</button></span></span>
+          <div id="emoji-picker" class="emoji-picker"></div>
+          <span class="te-pair"><span class="te-k">Kolor</span>
+            <span class="te-v"><label class="inline"><input id="f-color-auto" type="checkbox" checked> auto</label>
+              <input id="f-color" type="color" value="#3b6fd8" disabled></span></span>
+        </div>
+      </details>
+
+      <p id="f-error" class="error"></p>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close>Anuluj</button>
+        <button type="submit" class="btn primary">Zapisz</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Kolor zakładki grupy -->
+  <div id="gcolor-modal" class="modal" hidden>
+    <div class="dialog small">
+      <h2 id="gc-title">Kolor zakładki</h2>
+      <div id="gc-swatches" class="swatches"></div>
+      <div class="row tight">
+        <span class="hint" style="margin:0">Własny:</span>
+        <input id="gc-custom" type="color">
+        <button type="button" id="gc-apply" class="btn small-btn">Ustaw</button>
+      </div>
+      <div class="actions">
+        <button type="button" id="gc-none" class="btn ghost">Bez koloru</button>
+        <button type="button" class="btn" data-close>Zamknij</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tło grupy -->
+  <div id="gbg-modal" class="modal" hidden>
+    <div class="dialog">
+      <h2 id="gb-title">Tło grupy</h2>
+      <div class="bg-choices">
+        <button type="button" class="btn" data-bg="inherit">Jak w ustawieniach</button>
+        <button type="button" class="btn" data-bg="wood">Ciemne deski</button>
+        <button type="button" class="btn" data-bg="bing">Tapeta dnia</button>
+        <button type="button" class="btn" data-bg="rotate">Zmieniające się zdjęcia</button>
+        <button type="button" class="btn" data-bg="image">Własne zdjęcie…</button>
+        <button type="button" class="btn" data-bg="crop">✋ Ustaw kadr…</button>
+      </div>
+      <div class="field-label" style="margin-top:12px">Gradient</div>
+      <div id="gb-gradients" class="swatches"></div>
+      <div class="row tight">
+        <span class="hint" style="margin:0">Jednolity kolor:</span>
+        <input id="gb-color" type="color">
+        <button type="button" class="btn small-btn" data-bg="color">Ustaw</button>
+      </div>
+      <input id="gb-file" type="file" accept="image/*" hidden>
+      <div class="actions"><button type="button" class="btn" data-close>Zamknij</button></div>
+    </div>
+  </div>
+
+  <!-- Duplikaty -->
+  <div id="dup-modal" class="modal" hidden>
+    <div class="dialog wide">
+      <h2>Duplikaty</h2>
+      <p id="dup-info" class="hint"></p>
+      <div id="dup-list" class="dup-list"></div>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close>Zamknij</button>
+        <button type="button" id="dup-all" class="btn primary">Usuń wszystkie duplikaty</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nazwa (grupa / folder) -->
+  <div id="name-modal" class="modal" hidden>
+    <form class="dialog small" id="name-form">
+      <h2 id="name-modal-title">Nowa grupa</h2>
+      <label><span id="name-modal-label">Nazwa</span>
+        <input id="n-name" type="text" required maxlength="40">
+      </label>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close>Anuluj</button>
+        <button type="submit" class="btn primary">Zapisz</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Folder -->
+  <div id="folder-modal" class="modal folder-modal" hidden>
+    <div class="dialog folder-dialog">
+      <div class="folder-head">
+        <input id="folder-title" type="text" maxlength="40" title="Kliknij, aby zmienić nazwę">
+        <button type="button" id="folder-open-all" class="btn">Otwórz wszystkie</button>
+        <button type="button" class="icon-btn small" data-close title="Zamknij">✕</button>
+      </div>
+      <section id="folder-grid" class="tile-grid"></section>
+      <p class="hint center">Przeciągnij kafelek poza to okno, aby wyjąć go z folderu.</p>
+    </div>
+  </div>
+
+  <!-- PIN -->
+  <div id="pin-modal" class="modal" hidden>
+    <form class="dialog small" id="pin-form">
+      <h2 id="pin-title">Ustaw PIN</h2>
+      <p id="pin-info" class="hint"></p>
+      <label id="pin-old-row">Obecny PIN
+        <input id="pin-old" type="password" inputmode="numeric" autocomplete="off">
+      </label>
+      <label id="pin-new-row">Nowy PIN (min. 4 cyfry)
+        <input id="pin-new" type="password" inputmode="numeric" autocomplete="off">
+      </label>
+      <label id="pin-new2-row">Powtórz PIN
+        <input id="pin-new2" type="password" inputmode="numeric" autocomplete="off">
+      </label>
+      <p id="pin-error" class="error"></p>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close>Anuluj</button>
+        <button type="submit" class="btn primary">Zapisz</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Import zakładek -->
+  <div id="bm-modal" class="modal" hidden>
+    <div class="dialog wide">
+      <h2>Import z zakładek Chrome</h2>
+      <p class="hint">Wybierz folder zakładek. Podfoldery staną się folderami w kafelkach.</p>
+      <div id="bm-tree" class="bm-tree"></div>
+      <label class="inline"><input type="radio" name="bm-target" value="new" checked> Utwórz nową grupę</label>
+      <label class="inline"><input type="radio" name="bm-target" value="current"> Dodaj do bieżącej grupy</label>
+      <div class="actions">
+        <button type="button" class="btn ghost" data-close>Anuluj</button>
+        <button type="button" id="bm-import" class="btn primary" disabled>Importuj</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ustawienia -->
+  <div id="settings-modal" class="modal" hidden>
+    <div class="dialog settings">
+      <aside class="set-side">
+        <div class="set-brand">⚙ Ustawienia</div>
+        <nav id="set-nav">
+          <button type="button" data-pane="tiles"><span>🔲</span>Kafelki</button>
+          <button type="button" data-pane="look"><span>🎨</span>Wygląd</button>
+          <button type="button" data-pane="bg"><span>🖼️</span>Tło</button>
+          <button type="button" data-pane="weather"><span>🌤️</span>Pogoda</button>
+          <button type="button" data-pane="widgets"><span>🧩</span>Widżety</button>
+          <button type="button" data-pane="rss"><span>📰</span>Wiadomości</button>
+          <button type="button" data-pane="sync"><span>🔄</span>Synchronizacja</button>
+          <button type="button" data-pane="privacy"><span>🔒</span>Prywatność</button>
+          <button type="button" data-pane="data"><span>💾</span>Import i kopia</button>
+          <button type="button" data-pane="trash"><span>🗑️</span>Kosz</button>
+          <button type="button" data-pane="keys"><span>⌨️</span>Skróty</button>
+          <button type="button" data-pane="about"><span>ℹ️</span>O dodatku</button>
+        </nav>
+        <div class="set-autosave">Zmiany zapisują się od razu<br><span class="by">Moja Karta · adi82bdg</span></div>
+      </aside>
+
+      <div class="set-main">
+        <header class="set-head">
+          <h2 id="set-title">Kafelki</h2>
+          <button type="button" class="icon-btn small" data-close title="Zamknij (Esc)">✕</button>
+        </header>
+
+        <div class="set-body">
+
+          <!-- KAFELKI -->
+          <section class="set-pane" data-pane="tiles" data-title="Kafelki">
+            <h4>Układ</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Liczba kolumn</div><div class="set-desc">Ile kafelków mieści się w jednym rzędzie</div></div>
+                <div class="set-ctl range-ctl"><input id="s-columns" type="range" min="2" max="12"><b id="s-columns-val"></b></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Rozmiar kafelków</div></div>
+                <div class="set-ctl"><select id="s-tileSize">
+                  <option value="s">Mały</option><option value="m">Średni</option><option value="l">Duży</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pokazuj nazwy</div><div class="set-desc">Podpis pod każdym kafelkiem</div></div>
+                <div class="set-ctl"><input id="s-showTitles" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Kafelek „+ Dodaj”</div><div class="set-desc">Po wyłączeniu strony dodasz prawym przyciskiem myszy na tle, ikoną dodatku lub przeciągając link</div></div>
+                <div class="set-ctl"><input id="s-showAddTile" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">🔒 Tylko do odczytu</div><div class="set-desc">Blokuje przesuwanie, edycję i usuwanie – kafelki można tylko otwierać</div></div>
+                <div class="set-ctl"><input id="s-readOnly" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Notatki pod kafelkami</div><div class="set-desc">Notatkę dodasz w edycji kafelka; zawsze widać ją też po najechaniu myszą</div></div>
+                <div class="set-ctl"><input id="s-showNotes" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Zakładka „Ostatnio zamknięte”</div><div class="set-desc">Karty zamknięte przez pomyłkę – przywrócisz jednym kliknięciem</div></div>
+                <div class="set-ctl"><input id="s-showRecent" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Otwieraj w nowej karcie</div><div class="set-desc">Kliknięcie kafelka nie zamyka strony startowej</div></div>
+                <div class="set-ctl"><input id="s-openInNewTab" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+
+            <h4>Wygląd kafelków</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Styl kafelków</div></div>
+                <div class="set-ctl"><select id="s-tileStyle">
+                  <option value="color">Kolorowe</option>
+                  <option value="glass">Szklane (rozmyte)</option>
+                  <option value="clear">Przezroczyste (bez tła)</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Wielkość ikon</div><div class="set-desc">Dla wszystkich kafelków; pojedynczy kafelek zmienisz w jego edycji lub menu (➕/➖)</div></div>
+                <div class="set-ctl range-ctl"><input id="s-iconSize" type="range" min="15" max="60" step="1"><b id="s-iconSize-val"></b>
+                  <button type="button" id="s-iconSize-reset" class="btn ghost small-btn" title="Automatyczna">↺</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Obramowanie kafelków</div><div class="set-desc">Cienka ramka wokół kafelka</div></div>
+                <div class="set-ctl"><select id="s-frame">
+                  <option value="normal">Cienka jasna ramka</option>
+                  <option value="soft">Delikatne</option>
+                  <option value="none">Przezroczyste (bez ramki)</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Efekt po najechaniu</div><div class="set-desc">Jak reaguje kafelek pod kursorem myszy</div></div>
+                <div class="set-ctl"><select id="s-tileHover">
+                  <option value="lift">Uniesienie</option>
+                  <option value="zoom">Powiększenie</option>
+                  <option value="glow">Podświetlenie</option>
+                  <option value="tilt">Efekt 3D</option>
+                  <option value="none">Bez efektu</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Tło kafelków</div><div class="set-desc">0% – całkowicie przezroczyste, widać tapetę (układ klasyczny)</div></div>
+                <div class="set-ctl range-ctl"><input id="s-tileBgAlpha" type="range" min="0" max="100" step="5"><b id="s-tileBgAlpha-val"></b></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Ikony stron</div></div>
+                <div class="set-ctl"><select id="s-iconStyle">
+                  <option value="clear">Przezroczyste – samo logo</option>
+                  <option value="box">Na białym kwadracie</option>
+                </select></div>
+              </div>
+            </div>
+
+            <h4>Jakość ikon</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Ikony prosto ze stron</div>
+                  <div class="set-desc">Szuka najlepszej ikony na każdej stronie (SVG, 180–512 px)</div>
+                  <div class="set-desc" id="s-icons-stat"></div></div>
+                <div class="set-ctl">
+                  <button type="button" id="s-icons-allow" class="btn primary">Zezwól</button>
+                  <span id="s-icons-ok" class="ok-pill" hidden>✓ Włączone</span>
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pobierz wszystkie ikony od nowa</div><div class="set-desc">Gdy strona zmieniła logo albo ikona wygląda źle</div></div>
+                <div class="set-ctl"><button type="button" id="s-icons-refresh" class="btn">Odśwież</button></div>
+              </div>
+            </div>
+            <p class="set-note">Pojedynczą ikonę odświeżysz z menu kafelka (⋯ → Odśwież ikonę), a własną wgrasz w edycji kafelka.</p>
+
+            <h4>Strony – działanie i nowości</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Sprawdzaj, czy strony działają</div><div class="set-desc">Kafelek dostaje czerwoną kropkę, gdy strona nie odpowiada</div></div>
+                <div class="set-ctl"><input id="s-monitorOn" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Jak często</div><div class="set-desc">Dotyczy też obserwowania nowości (👁 w menu kafelka)</div></div>
+                <div class="set-ctl"><select id="s-monitorEvery">
+                  <option value="15">co 15 minut</option><option value="30">co 30 minut</option>
+                  <option value="60">co godzinę</option><option value="180">co 3 godziny</option><option value="720">co 12 godzin</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Powiadomienia o nowościach</div><div class="set-desc">Dymek w Windows, gdy na obserwowanej stronie pojawi się coś nowego</div></div>
+                <div class="set-ctl"><input id="s-watchNotify" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Sprawdź teraz</div><div id="s-monitor-info" class="set-desc"></div></div>
+                <div class="set-ctl"><button type="button" id="s-monitorNow" class="btn">Sprawdź</button></div>
+              </div>
+            </div>
+
+            <h4>Dodatki</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Podgląd strony zamiast logo</div><div class="set-desc">Zrzut ekranu z ostatniej wizyty na stronie</div></div>
+                <div class="set-ctl"><input id="s-thumbnails" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Utwórz podglądy wszystkich stron</div><div class="set-desc" id="s-capture-status">Strony otworzą się kolejno w osobnym oknie, które zamknie się samo.</div></div>
+                <div class="set-ctl"><button type="button" id="s-capture-all" class="btn">Utwórz teraz</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Liczniki powiadomień</div><div class="set-desc">Np. nieprzeczytane maile w Gmailu, wiadomości na Facebooku</div></div>
+                <div class="set-ctl"><input id="s-badges" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+            <p class="set-note">ℹ️ Podglądy odświeżają się też same, gdy odwiedzasz stronę (najczęściej co 2 godziny). Zostają tylko na tym komputerze.</p>
+          </section>
+
+          <!-- WYGLĄD -->
+          <section class="set-pane" data-pane="look" data-title="Wygląd">
+            <h4>Gotowe motywy</h4>
+            <div id="theme-presets" class="theme-presets"></div>
+            <h4>Ustawienia</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">🔍 Wyszukiwarka na stronie</div><div class="set-desc">Pasek wyszukiwania nad kafelkami – wyłącz, jeśli szukasz z paska adresu</div></div>
+                <div class="set-ctl"><input id="s-showSearch" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Układ strony</div><div class="set-desc">Klasyczny: nazwy nad kafelkami, ramki, podglądy stron, ciemne deski</div></div>
+                <div class="set-ctl"><select id="s-layout">
+                  <option value="modern">✨ Nowoczesny</option><option value="classic">🗂️ Klasyczny</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Motyw</div><div class="set-desc">Kolory okien, menu i napisów</div></div>
+                <div class="set-ctl"><select id="s-theme">
+                  <option value="dark">🌙 Ciemny</option><option value="light">☀️ Jasny</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Zegar i data</div></div>
+                <div class="set-ctl"><input id="s-showClock" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+            <h4>Nazwy kafelków</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Czcionka</div></div>
+                <div class="set-ctl"><select id="s-titleFont">
+                  <option value="system">Systemowa</option>
+                  <option value="rounded">Zaokrąglona</option>
+                  <option value="verdana">Verdana</option>
+                  <option value="trebuchet">Trebuchet</option>
+                  <option value="condensed">Wąska</option>
+                  <option value="serif">Szeryfowa (Georgia)</option>
+                  <option value="mono">Maszynowa</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Wielkość</div></div>
+                <div class="set-ctl range-ctl"><input id="s-titleSize" type="range" min="10" max="20" step="1"><b id="s-titleSize-val"></b></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pogrubienie</div></div>
+                <div class="set-ctl"><input id="s-titleBold" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Kolor</div></div>
+                <div class="set-ctl"><label class="inline"><input id="s-titleColorAuto" type="checkbox"> automatyczny</label><input id="s-titleColor" type="color"></div>
+              </div>
+            </div>
+
+            <h4>Wyszukiwanie</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Wyszukiwarka</div></div>
+                <div class="set-ctl"><select id="s-engine"></select></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- TŁO -->
+          <section class="set-pane" data-pane="bg" data-title="Tło">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Rodzaj tła</div></div>
+                <div class="set-ctl"><select id="s-bgType">
+                  <option value="gradient">Gradient</option>
+                  <option value="color">Jednolity kolor</option>
+                  <option value="image">Własne zdjęcie</option>
+                  <option value="bing">Tapeta dnia (Bing)</option>
+                  <option value="wood">Ciemne deski</option>
+                  <option value="rotate">Zmieniające się zdjęcia</option>
+                </select></div>
+              </div>
+              <div class="set-row column" id="bg-gradient-row">
+                <div class="set-text"><div class="set-name">Wybierz gradient</div></div>
+                <div id="bg-gradient-opts" class="swatches"></div>
+              </div>
+              <div class="set-row" id="bg-color-opts">
+                <div class="set-text"><div class="set-name">Kolor tła</div></div>
+                <div class="set-ctl"><input id="s-bgColor" type="color"></div>
+              </div>
+              <div class="set-row" id="bg-image-opts">
+                <div class="set-text"><div class="set-name">Zdjęcie</div><div class="set-desc">JPG lub PNG z dysku</div></div>
+                <div class="set-ctl"><button type="button" id="s-bgImage-pick" class="btn">Wybierz plik…</button>
+                  <input id="s-bgImage-file" type="file" accept="image/*" hidden></div>
+              </div>
+              <div class="set-row column" id="bg-rotate-opts">
+                <div class="set-text"><div class="set-name">Zdjęcia do rotacji</div><div id="rotate-count" class="set-desc"></div></div>
+                <div id="rotate-list" class="rotate-list"></div>
+                <div class="row tight wrap">
+                  <button type="button" id="s-rotate-add" class="btn">Dodaj zdjęcia…</button>
+                  <input id="s-rotate-file" type="file" accept="image/*" multiple hidden>
+                  <span class="hint" style="margin:0">Zmieniaj:</span>
+                  <select id="s-rotateMode" class="mini-select">
+                    <option value="day">codziennie</option>
+                    <option value="hour">co godzinę</option>
+                    <option value="open">przy każdej nowej karcie</option>
+                  </select>
+                </div>
+              </div>
+              <div class="set-row" id="bg-crop-row">
+                <div class="set-text"><div class="set-name">✋ Kadr zdjęcia</div><div class="set-desc">Przeciągnij tło myszą i przybliż kółkiem, żeby wybrać widoczny fragment</div></div>
+                <div class="set-ctl"><button type="button" id="s-crop" class="btn">Ustaw kadr…</button><button type="button" id="s-crop-reset" class="btn ghost small-btn" title="Wyśrodkuj">↺</button></div>
+              </div>
+              <div class="set-row" id="bg-dim-row">
+                <div class="set-text"><div class="set-name">Przyciemnienie</div><div class="set-desc">Poprawia czytelność napisów na zdjęciu</div></div>
+                <div class="set-ctl range-ctl"><input id="s-bgDim" type="range" min="0" max="80"><b id="s-bgDim-val"></b></div>
+              </div>
+            </div>
+                      <h4>Animowane tło</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">✨ Efekt</div><div class="set-desc">Delikatna animacja na tle – zatrzymuje się, gdy karta jest w tle</div></div>
+                <div class="set-ctl"><select id="s-fx">
+                  <option value="off">Wyłączone</option>
+                  <option value="snow">❄️ Padający śnieg</option>
+                  <option value="stars">✨ Migające gwiazdy</option>
+                  <option value="rain">🌧️ Deszcz</option>
+                  <option value="fireflies">🌟 Świetliki</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Ilość</div></div>
+                <div class="set-ctl"><select id="s-fxAmount"><option value="1">mało</option><option value="2">średnio</option><option value="3">dużo</option></select></div>
+              </div>
+            </div>
+</section>
+
+          <!-- (animowane tło dodane w zakładce Tło) -->
+          <!-- POGODA -->
+          <section class="set-pane" data-pane="weather" data-title="Pogoda">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pokazuj pogodę</div><div class="set-desc">W lewym górnym rogu; najedź myszką, by zobaczyć prognozę</div></div>
+                <div class="set-ctl"><input id="s-weatherOn" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row" id="weather-opts">
+                <div class="set-text"><div class="set-name">Miejscowość</div><div id="s-city-info" class="set-desc"></div></div>
+                <div class="set-ctl city-ctl">
+                  <input id="s-city" type="text" placeholder="np. Kraków">
+                  <button type="button" id="s-city-find" class="btn primary">Ustaw</button>
+                </div>
+              </div>
+            </div>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Ostrzeżenie o deszczu</div><div class="set-desc">Parasol ☔ przy pogodzie, gdy w ciągu 3 godzin ma padać</div></div>
+                <div class="set-ctl"><input id="s-weatherRain" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+            <p class="set-note">Dane pogodowe: Open-Meteo, odświeżane co 30 minut. Po najechaniu na pogodę: prognoza godzinowa, 4 dni oraz wschód i zachód słońca.</p>
+          </section>
+
+          <!-- WIDŻETY -->
+          <section class="set-pane" data-pane="widgets" data-title="Widżety">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Notatnik i zadania 📝</div><div class="set-desc">Przycisk w prawym górnym rogu: lista zadań do odhaczania i notatki. Synchronizują się razem z kafelkami.</div></div>
+                <div class="set-ctl"><input id="s-showPad" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+            <h4>Kursy walut</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pokazuj kursy walut</div><div class="set-desc">Średnie kursy NBP w prawym górnym rogu, ze strzałką zmiany od poprzedniego dnia</div></div>
+                <div class="set-ctl"><input id="s-ratesOn" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Waluty</div><div id="s-rates-info" class="set-desc"></div></div>
+                <div class="set-ctl rate-picks" id="s-rates"></div>
+              </div>
+            </div>
+            <h4>Odliczanie</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Pokazuj odliczanie</div><div class="set-desc">Pod zegarem, np. „Urlop · za 23 dni”. Minione jednorazowe daty znikają same.</div></div>
+                <div class="set-ctl"><input id="s-countdownOn" type="checkbox" class="switch"></div>
+              </div>
+              <div id="cd-list" class="cd-list"></div>
+              <form id="cd-add" class="set-row cd-add">
+                <input id="cd-name" type="text" placeholder="Nazwa, np. 🏖 Urlop" maxlength="40" required>
+                <input id="cd-date" type="date" required>
+                <label class="cd-yearly"><input id="cd-yearly" type="checkbox"> co roku</label>
+                <button type="submit" class="btn primary">Dodaj</button>
+              </form>
+            </div>
+            <p class="set-note">Kursy walut: Narodowy Bank Polski (api.nbp.pl), odświeżane co 3 godziny w dni robocze.</p>
+          </section>
+
+          <!-- WIADOMOŚCI RSS -->
+          <section class="set-pane" data-pane="rss" data-title="Wiadomości (RSS)">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Przycisk wiadomości 📰</div><div class="set-desc">Panel z najnowszymi wpisami z wybranych stron i forów</div></div>
+                <div class="set-ctl"><input id="s-rssOn" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Ile wiadomości pokazywać</div></div>
+                <div class="set-ctl"><select id="s-rssMax"><option value="20">20</option><option value="50">50</option><option value="100">100</option></select></div>
+              </div>
+            </div>
+            <h4>Dodaj kanał</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Adres strony lub kanału</div><div class="set-desc">Wystarczy adres strony, np. bankier.pl – kanał RSS znajdzie się sam</div></div>
+              </div>
+              <div class="set-row">
+                <div class="set-ctl city-ctl" style="flex:1">
+                  <input id="rss-url" type="text" placeholder="np. bankier.pl" style="flex:1;width:auto">
+                  <button type="button" id="rss-add" class="btn primary">Dodaj</button>
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Wykryj w moich kafelkach</div><div class="set-desc">Sprawdza strony z kafelków i dodaje te, które mają kanał RSS</div></div>
+                <div class="set-ctl"><button type="button" id="rss-detect" class="btn">Wykryj</button></div>
+              </div>
+            </div>
+            <p id="rss-info" class="set-note"></p>
+            <h4>Twoje kanały</h4>
+            <div id="rss-list" class="set-card"></div>
+          </section>
+
+          <!-- SYNCHRONIZACJA -->
+          <section class="set-pane" data-pane="sync" data-title="Synchronizacja">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Synchronizuj przez konto Google</div><div class="set-desc">Te same kafelki na każdym komputerze z Twoim kontem w Chrome</div></div>
+                <div class="set-ctl"><input id="s-sync" type="checkbox" class="switch"></div>
+              </div>
+            </div>
+            <p id="s-sync-info" class="set-note"></p>
+          </section>
+
+          <!-- PRYWATNOŚĆ -->
+          <section class="set-pane" data-pane="privacy" data-title="Prywatność">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">PIN do prywatnych grup</div>
+                  <div class="set-desc">Grupę zablokujesz prawym kliknięciem na jej zakładce → „Zablokuj PIN-em”. Po odblokowaniu grupy są dostępne przez 15 minut.</div></div>
+                <div class="set-ctl col-ctl">
+                  <button type="button" id="s-pin-set" class="btn">Ustaw PIN</button>
+                  <button type="button" id="s-pin-remove" class="btn danger">Usuń PIN</button>
+                </div>
+              </div>
+            </div>
+            <p class="set-note">PIN chroni przed przypadkowym podejrzeniem – to nie jest szyfrowanie.</p>
+          </section>
+
+          <!-- DANE -->
+          <section class="set-pane" data-pane="data" data-title="Import i kopia zapasowa">
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Zakładki Chrome</div><div class="set-desc">Zamień folder zakładek w grupę kafelków</div></div>
+                <div class="set-ctl"><button type="button" id="s-bookmarks" class="btn">Importuj…</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Duplikaty</div><div class="set-desc">Znajdź te same strony w różnych grupach i folderach</div></div>
+                <div class="set-ctl"><button type="button" id="s-dups" class="btn">Znajdź…</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Eksport do pliku</div><div class="set-desc">Wszystko: kafelki, grupy, ustawienia, obrazy, podglądy stron i tła (.json)</div></div>
+                <div class="set-ctl"><button type="button" id="s-export" class="btn">Eksportuj</button></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Import z pliku</div><div class="set-desc">Wczytaj plik kopii (to samo co „Przywróć kopię”) – zastępuje obecne kafelki</div></div>
+                <div class="set-ctl"><button type="button" id="s-import" class="btn">Importuj…</button>
+                  <input id="s-import-file" type="file" accept=".json,application/json" hidden></div>
+              </div>
+            </div>
+            <h4>Automatyczna kopia zapasowa</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Rób kopię</div><div class="set-desc">Plik .json w folderze Pobrane → MojaKarta-kopie</div></div>
+                <div class="set-ctl"><select id="s-backupMode">
+                  <option value="off">wyłączone</option><option value="daily">codziennie</option><option value="weekly">co tydzień</option>
+                </select></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Kopia teraz</div><div id="s-backup-info" class="set-desc"></div></div>
+                <div class="set-ctl">
+                  <button type="button" id="s-backupNow" class="btn">Zrób kopię</button>
+                  <button type="button" id="s-backupShow" class="btn ghost">Pokaż</button>
+                </div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">♻️ Przywróć kopię</div><div class="set-desc">Wybierz plik moja-karta-RRRR-MM-DD.json z folderu Pobrane → MojaKarta-kopie. Wróci wszystko: kafelki, grupy, ustawienia, obrazy i podglądy.</div></div>
+                <div class="set-ctl"><button type="button" id="s-restore" class="btn primary">Przywróć kopię…</button></div>
+              </div>
+            </div>
+
+            <h4 class="danger-h">Strefa zagrożenia</h4>
+            <div class="set-card danger-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Przywróć domyślne</div><div class="set-desc">Usuwa wszystkie kafelki, grupy i ustawienia</div></div>
+                <div class="set-ctl"><button type="button" id="s-reset" class="btn danger">Przywróć</button></div>
+              </div>
+            </div>
+          </section>
+
+          <!-- SKRÓTY -->
+          <section class="set-pane" data-pane="keys" data-title="Skróty klawiszowe">
+            <div class="set-card">
+              <div class="set-row"><div class="set-text"><div class="set-name">Otwórz kafelek 1–9</div></div><div class="set-ctl keys-ctl"><kbd>Alt</kbd> + <kbd>1</kbd>…<kbd>9</kbd></div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">…w nowej karcie</div></div><div class="set-ctl keys-ctl"><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>1</kbd>…<kbd>9</kbd></div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">Poprzednia / następna grupa</div></div><div class="set-ctl keys-ctl"><kbd>Ctrl</kbd> + <kbd>←</kbd> / <kbd>→</kbd></div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">Wyszukiwanie</div></div><div class="set-ctl keys-ctl"><kbd>/</kbd></div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">Zamknij okno / menu, odznacz kafelki</div></div><div class="set-ctl keys-ctl"><kbd>Esc</kbd></div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">Zaznacz kafelek / zakres</div></div><div class="set-ctl keys-ctl"><kbd>Ctrl</kbd>+klik · <kbd>Shift</kbd>+klik</div></div>
+              <div class="set-row"><div class="set-text"><div class="set-name">Zaznacz wszystkie / usuń zaznaczone</div></div><div class="set-ctl keys-ctl"><kbd>Ctrl</kbd>+<kbd>A</kbd> · <kbd>Delete</kbd></div></div>
+            </div>
+            <p class="set-note">Przytrzymaj <kbd>Alt</kbd>, aby zobaczyć numery kafelków. Skróty działają, gdy kursor jest na stronie, a nie w pasku adresu – wystarczy raz kliknąć tło.</p>
+          </section>
+
+          <!-- KOSZ -->
+          <section class="set-pane" data-pane="trash" data-title="Kosz">
+            <p class="set-note" style="margin-top:14px">Usunięte kafelki, foldery i grupy są tu przez 30 dni.</p>
+            <div id="trash-list" class="set-card trash-list"></div>
+            <div class="row wrap" style="margin-top:12px">
+              <button type="button" id="trash-empty" class="btn danger">Opróżnij kosz</button>
+            </div>
+          </section>
+
+          <!-- O DODATKU -->
+          <section class="set-pane" data-pane="about" data-title="O dodatku">
+            <div class="about-hero">
+              <img src="icons/icon128.png" alt="">
+              <div>
+                <div id="about-name" class="about-name">Moja Karta</div>
+                <div id="about-version" class="set-desc"></div>
+              </div>
+            </div>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Autor</div></div>
+                <div class="set-ctl"><span id="about-author" class="about-val"></span></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Opis</div>
+                  <div class="set-desc">Twoja strona startowa w Chrome: kafelki ulubionych stron z grupami i folderami, podglądy stron, ikony wysokiej jakości, pogoda, tapeta dnia, liczniki powiadomień, prywatne grupy z PIN-em i synchronizacja przez konto Google.</div></div>
+              </div>
+            </div>
+            <h4>Strona startowa</h4>
+            <div class="set-card">
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Otwieraj Moją Kartę przy starcie przeglądarki</div><div class="set-desc">Przydatne w Operze, która nie pozwala dodatkom zastąpić nowej karty</div></div>
+                <div class="set-ctl"><input id="s-openOnStartup" type="checkbox" class="switch"></div>
+              </div>
+              <div class="set-row">
+                <div class="set-text"><div class="set-name">Adres Mojej Karty</div><div class="set-desc">Wklej go w ustawieniach przeglądarki jako stronę startową / domową · przeglądarka: <b id="about-browser"></b></div></div>
+              </div>
+              <div class="set-row">
+                <div class="set-ctl city-ctl" style="flex:1">
+                  <input id="about-url" type="text" readonly style="flex:1;width:auto;font-size:12px">
+                  <button type="button" id="about-copy-url" class="btn">Kopiuj</button>
+                </div>
+              </div>
+            </div>
+            <p id="opera-note" class="set-note" hidden>ℹ W Operze nowa karta zawsze pokazuje Szybkie wybieranie Opery. Moją Kartę otworzysz ikoną dodatku na pasku albo ustaw ją jako stronę startową: Ustawienia Opery → „Przy uruchomieniu” → „Otwórz określoną stronę” → wklej adres powyżej.</p>
+            <p id="about-copy" class="set-note about-copy"></p>
+            <p class="set-note">Twoje kafelki i ustawienia są zapisane tylko w Twojej przeglądarce (oraz na koncie Google, jeśli włączysz synchronizację).</p>
+          </section>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" hidden></div>
+
+  <script type="module" src="newtab.js"></script>
+</body>
+</html>
